@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">FlightDeck</string>
+    <string name="welcome">Welcome to FlightDeck!</string>
+</resources>
