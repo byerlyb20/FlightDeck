@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#3F51B5</color>
-    <color name="colorPrimaryDark">#303F9F</color>
-    <color name="colorAccent">#FF4081</color>
+    <color name="colorPrimary">#ff6874</color>
+    <color name="colorPrimaryDark">#ff4f5d</color>
+    <color name="colorAccent">#ff994f</color>
+
+    <!-- Colors for the app gradient style -->
+    <color name="gradientStart">#ff33be</color>
+    <color name="gradientEnd">#ff9d2a</color>
 </resources>
