@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">FlightDeck</string>
-    <string name="welcome">Welcome to FlightDeck!</string>
+    <string name="activity_flight">Flight Panel</string>
+
+    <string name="msg_greet">There\'s not a lot here yet, but we\'re working on it.</string>
+
+    <string name="button_begin_flight">Begin Flight</string>
 </resources>
