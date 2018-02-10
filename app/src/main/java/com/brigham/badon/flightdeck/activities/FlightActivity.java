@@ -1,8 +1,10 @@
-package com.brigham.badon.flightdeck;
+package com.brigham.badon.flightdeck.activities;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
+
+import com.brigham.badon.flightdeck.R;
 
 public class FlightActivity extends AppCompatActivity {
 

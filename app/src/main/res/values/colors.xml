@@ -7,4 +7,8 @@
     <!-- Colors for the app gradient style -->
     <color name="gradientStart">#ff33be</color>
     <color name="gradientEnd">#ff9d2a</color>
+
+    <!-- Virtual Joystick Colors -->
+    <color name="joystickBackground">#f2f2f2</color>
+    <color name="joystickThumbBackground">#ffffff</color>
 </resources>
