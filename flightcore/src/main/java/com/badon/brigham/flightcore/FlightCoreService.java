@@ -25,7 +25,7 @@ public class FlightCoreService extends Service {
 
     private static final int DRONE_PORT = 8080;
 
-    private static final int ONGOING_NOTIFICATION_ID = 0;
+    private static final int ONGOING_NOTIFICATION_ID = 1;
 
     private static final String NOTIFICATION_CHANNEL_ID = "FLIGHTCORE_SERVICE";
 

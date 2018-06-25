@@ -1,1 +1,1 @@
-include ':app', ':flightcore', ':flightcore'
+include ':app', ':flightcore'
