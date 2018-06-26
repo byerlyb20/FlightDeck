@@ -23,14 +23,12 @@ import java.net.Socket;
 
 public class FlightCoreService extends Service {
 
-    private static final int DRONE_PORT = 8080;
-
     private static final int ONGOING_NOTIFICATION_ID = 1;
 
     private static final String NOTIFICATION_CHANNEL_ID = "FLIGHTCORE_SERVICE";
 
-    private static final int EVENT_ESTABLISH_CONNECTION = 0;
-    private static final int EVENT_INITIATE_TEST = 1;
+    public static final int EVENT_ESTABLISH_CONNECTION = 0;
+    public static final int EVENT_INITIATE_TEST = 1;
 
     private Looper mServiceLooper;
     private ServiceHandler mServiceHandler;
@@ -49,16 +47,16 @@ public class FlightCoreService extends Service {
         @Override
         public void handleMessage(Message msg) {
             Bundle bundle = msg.getData();
-            int event = bundle.getInt("event");
-            switch (event) {
+            switch (msg.what) {
                 case EVENT_ESTABLISH_CONNECTION: {
                     if (mSocket == null) {
                         try {
                             String ipAddr = bundle.getString("ipAddr");
                             InetAddress addr = InetAddress.getByName(ipAddr);
+                            int port = bundle.getInt("port");
 
                             mSocket = new Socket();
-                            InetSocketAddress target = new InetSocketAddress(addr, DRONE_PORT);
+                            InetSocketAddress target = new InetSocketAddress(addr, port);
                             mSocket.connect(target);
                         } catch (IOException e) {
                             e.printStackTrace();

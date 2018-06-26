@@ -5,4 +5,8 @@
     <string name="msg_greet">There\'s not a lot here yet, but we\'re working on it.</string>
 
     <string name="button_begin_flight">Begin Flight</string>
+
+    <string name="drone_ip">Drone IP Address</string>
+    <string name="drone_port">Drone Port</string>
+    <string name="drone_connect">Connect</string>
 </resources>
