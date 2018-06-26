@@ -6,6 +6,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
@@ -78,6 +79,16 @@ public class SelectDroneActivity extends AppCompatActivity implements ServiceCon
         Log.v(TAG, "Service connected");
 
         mService = new Messenger(service);
+
+        ClientHandler handler = new ClientHandler();
+        Messenger client = new Messenger(handler);
+        Message msg = Message.obtain();
+        msg.replyTo = client;
+        try {
+            mService.send(msg);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -85,6 +96,17 @@ public class SelectDroneActivity extends AppCompatActivity implements ServiceCon
         Log.v(TAG, "Service disconnected");
     }
 
+    private class ClientHandler extends Handler {
+        @Override
+        public void handleMessage(Message msg) {
+
+        }
+    }
+
+    /*
+    This method is passed as the value of the onClick parameter to a button, so it isn't actually
+    called anywhere in code
+     */
     public void establishConnection(View view) {
         Message msg = Message.obtain();
         msg.what = FlightCoreService.EVENT_ESTABLISH_CONNECTION;
@@ -100,6 +122,7 @@ public class SelectDroneActivity extends AppCompatActivity implements ServiceCon
 
         // Send the message off to the service
         try {
+            // TODO: What is mService is null?
             mService.send(msg);
             setLoading(true);
         } catch (RemoteException e) {

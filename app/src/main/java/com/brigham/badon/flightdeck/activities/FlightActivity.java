@@ -4,8 +4,11 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.os.Messenger;
+import android.os.RemoteException;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
@@ -58,6 +61,16 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         Log.v(TAG, "Service connected");
 
         mService = new Messenger(service);
+
+        ClientHandler handler = new ClientHandler();
+        Messenger client = new Messenger(handler);
+        Message msg = Message.obtain();
+        msg.replyTo = client;
+        try {
+            mService.send(msg);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -65,11 +78,10 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         Log.v(TAG, "Service disconnected");
     }
 
-    /*
-    This method is passed as the value of the onClick parameter to a button, so it isn't actually
-    called anywhere in code
-     */
-    public void establishConnection(View view) {
+    private class ClientHandler extends Handler {
+        @Override
+        public void handleMessage(Message msg) {
 
+        }
     }
 }

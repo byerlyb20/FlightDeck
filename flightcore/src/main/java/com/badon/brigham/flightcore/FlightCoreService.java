@@ -30,9 +30,8 @@ public class FlightCoreService extends Service {
     public static final int EVENT_ESTABLISH_CONNECTION = 0;
     public static final int EVENT_INITIATE_TEST = 1;
 
-    private Looper mServiceLooper;
-    private ServiceHandler mServiceHandler;
     private Messenger mMessenger;
+    private Messenger mClient;
 
     private Socket mSocket;
 
@@ -40,12 +39,19 @@ public class FlightCoreService extends Service {
     }
 
     private class ServiceHandler extends Handler {
-        public ServiceHandler(Looper looper) {
+        ServiceHandler(Looper looper) {
             super(looper);
         }
 
         @Override
         public void handleMessage(Message msg) {
+            // Check to see if we should be taking a Messenger object
+            if (msg.replyTo != null) {
+                mClient = msg.replyTo;
+                return;
+            }
+
+            // Perform traditional checks
             Bundle bundle = msg.getData();
             switch (msg.what) {
                 case EVENT_ESTABLISH_CONNECTION: {
@@ -95,8 +101,8 @@ public class FlightCoreService extends Service {
         HandlerThread thread = new HandlerThread("FlightCoreHandlerThread");
         thread.start();
 
-        mServiceLooper = thread.getLooper();
-        mServiceHandler = new ServiceHandler(mServiceLooper);
+        Looper mServiceLooper = thread.getLooper();
+        ServiceHandler mServiceHandler = new ServiceHandler(mServiceLooper);
         mMessenger = new Messenger(mServiceHandler);
     }
 
