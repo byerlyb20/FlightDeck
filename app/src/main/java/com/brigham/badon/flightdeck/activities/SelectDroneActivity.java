@@ -99,7 +99,19 @@ public class SelectDroneActivity extends AppCompatActivity implements ServiceCon
     private class ClientHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
-
+            switch (msg.what) {
+                case FlightCoreService.EVENT_CONNECTION_SUCCESS: {
+                    // Open the flight control panel in FlightActivity
+                    Intent intent = new Intent(SelectDroneActivity.this,
+                            FlightActivity.class);
+                    startActivity(intent);
+                    break;
+                }
+                case FlightCoreService.EVENT_CONNECTION_FAILURE: {
+                    setLoading(false);
+                    break;
+                }
+            }
         }
     }
 
@@ -122,7 +134,7 @@ public class SelectDroneActivity extends AppCompatActivity implements ServiceCon
 
         // Send the message off to the service
         try {
-            // TODO: What is mService is null?
+            // TODO: What if mService is null?
             mService.send(msg);
             setLoading(true);
         } catch (RemoteException e) {

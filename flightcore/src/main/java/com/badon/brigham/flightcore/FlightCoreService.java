@@ -13,7 +13,9 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
+import android.os.RemoteException;
 import android.support.v4.app.NotificationCompat;
+import android.util.Log;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -23,12 +25,16 @@ import java.net.Socket;
 
 public class FlightCoreService extends Service {
 
+    private static final String TAG = "FlightCoreService";
+
     private static final int ONGOING_NOTIFICATION_ID = 1;
 
     private static final String NOTIFICATION_CHANNEL_ID = "FLIGHTCORE_SERVICE";
 
     public static final int EVENT_ESTABLISH_CONNECTION = 0;
     public static final int EVENT_INITIATE_TEST = 1;
+    public static final int EVENT_CONNECTION_SUCCESS = 2;
+    public static final int EVENT_CONNECTION_FAILURE = 3;
 
     private Messenger mMessenger;
     private Messenger mClient;
@@ -64,8 +70,25 @@ public class FlightCoreService extends Service {
                             mSocket = new Socket();
                             InetSocketAddress target = new InetSocketAddress(addr, port);
                             mSocket.connect(target);
+
+                            try {
+                                Log.v(TAG, "Socket Connection Success");
+                                Message reply = Message.obtain();
+                                reply.what = EVENT_CONNECTION_SUCCESS;
+                                mClient.send(reply);
+                            } catch (RemoteException e) {
+                                e.printStackTrace();
+                            }
                         } catch (IOException e) {
                             e.printStackTrace();
+
+                            try {
+                                Message reply = Message.obtain();
+                                reply.what = EVENT_CONNECTION_FAILURE;
+                                mClient.send(reply);
+                            } catch (RemoteException f) {
+                                f.printStackTrace();
+                            }
                         }
                     }
                     break;
