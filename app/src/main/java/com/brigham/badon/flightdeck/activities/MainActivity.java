@@ -25,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
         buttonBeginFlight.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(MainActivity.this, FlightActivity.class);
+                Intent intent = new Intent(MainActivity.this, SelectDroneActivity.class);
                 startActivity(intent);
             }
         });

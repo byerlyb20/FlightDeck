@@ -61,7 +61,7 @@ public class FlightCoreService extends Service {
             Bundle bundle = msg.getData();
             switch (msg.what) {
                 case EVENT_ESTABLISH_CONNECTION: {
-                    if (mSocket == null) {
+                    if (mSocket == null || !mSocket.isConnected()) {
                         try {
                             String ipAddr = bundle.getString("ipAddr");
                             InetAddress addr = InetAddress.getByName(ipAddr);

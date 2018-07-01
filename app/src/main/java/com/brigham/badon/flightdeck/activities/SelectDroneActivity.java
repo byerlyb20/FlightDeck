@@ -131,6 +131,7 @@ public class SelectDroneActivity extends AppCompatActivity implements ServiceCon
         Bundle bundle = new Bundle();
         bundle.putString("ipAddr", ip);
         bundle.putInt("port", port);
+        msg.setData(bundle);
 
         // Send the message off to the service
         try {
@@ -143,22 +144,23 @@ public class SelectDroneActivity extends AppCompatActivity implements ServiceCon
     }
 
     private void setLoading(boolean state) {
-        final View a;
-        final View b;
         if (state) {
-            a = mProgressBar;
-            b = mContent;
+            crossfade(mProgressBar, mContent);
         } else {
-            a = mContent;
-            b = mProgressBar;
+            crossfade(mContent, mProgressBar);
         }
+    }
+
+    private void crossfade(final View a, final View b) {
+        a.animate().cancel();
 
         a.setAlpha(0f);
         a.setVisibility(View.VISIBLE);
 
         a.animate()
                 .alpha(1f)
-                .setDuration(SHORT_ANIMATION_DURATION);
+                .setDuration(SHORT_ANIMATION_DURATION)
+                .setListener(null);
 
         b.animate()
                 .alpha(0f)
