@@ -3,6 +3,7 @@ package com.brigham.badon.flightdeck.activities;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.ComponentName;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Build;
@@ -11,6 +12,7 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
@@ -109,6 +111,28 @@ public class SelectDroneActivity extends AppCompatActivity implements ServiceCon
                 }
                 case FlightCoreService.EVENT_CONNECTION_FAILURE: {
                     setLoading(false);
+
+                    Bundle details = msg.getData();
+                    int reason = details.getInt("reason",
+                            FlightCoreService.FAILURE_REASON_OTHER);
+                    AlertDialog.Builder builder =
+                            new AlertDialog.Builder(SelectDroneActivity.this);
+                    switch (reason) {
+                        case FlightCoreService.FAILURE_REASON_OTHER:
+                            builder.setTitle(R.string.error_other_dialog_title)
+                                    .setMessage(R.string.error_other_dialog_msg);
+                            break;
+                        case FlightCoreService.FAILURE_REASON_HOST_UNREACHABLE:
+                            builder.setTitle(R.string.error_host_unreachable_dialog_title)
+                                    .setMessage(R.string.error_host_unreachable_dialog_msg);
+                            break;
+                    }
+                    builder.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            dialog.dismiss();
+                        }
+                    });
+                    builder.create().show();
                     break;
                 }
             }

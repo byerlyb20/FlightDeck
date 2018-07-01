@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NoRouteToHostException;
 import java.net.Socket;
 
 public class FlightCoreService extends Service {
@@ -35,6 +36,9 @@ public class FlightCoreService extends Service {
     public static final int EVENT_INITIATE_TEST = 1;
     public static final int EVENT_CONNECTION_SUCCESS = 2;
     public static final int EVENT_CONNECTION_FAILURE = 3;
+
+    public static final int FAILURE_REASON_OTHER = 0;
+    public static final int FAILURE_REASON_HOST_UNREACHABLE = 1;
 
     private Messenger mMessenger;
     private Messenger mClient;
@@ -85,6 +89,13 @@ public class FlightCoreService extends Service {
                             try {
                                 Message reply = Message.obtain();
                                 reply.what = EVENT_CONNECTION_FAILURE;
+
+                                Bundle details = new Bundle();
+                                if (e instanceof NoRouteToHostException) {
+                                    details.putInt("reason", FAILURE_REASON_HOST_UNREACHABLE);
+                                }
+                                reply.setData(details);
+
                                 mClient.send(reply);
                             } catch (RemoteException f) {
                                 f.printStackTrace();

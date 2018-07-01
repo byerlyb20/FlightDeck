@@ -2,6 +2,8 @@
     <string name="app_name">FlightDeck</string>
     <string name="activity_flight">Flight Panel</string>
 
+    <string name="ok">OK</string>
+
     <string name="msg_greet">There\'s not a lot here yet, but we\'re working on it.</string>
 
     <string name="button_begin_flight">Begin Flight</string>
@@ -9,4 +11,12 @@
     <string name="drone_ip">Drone IP Address</string>
     <string name="drone_port">Drone Port</string>
     <string name="drone_connect">Connect</string>
+
+    <string name="error_other_dialog_title">Connection failed</string>
+    <string name="error_other_dialog_msg">For some reason, FlightCore couldn\'t establish a socket.
+        That\'s all we know!</string>
+    <string name="error_host_unreachable_dialog_title">Host unreachable</string>
+    <string name="error_host_unreachable_dialog_msg">FlightCore couldn\'t reach a device with the
+        connection details specified. The network could be blocking inter-device communication, or
+        the IP Address and/or port could be wrong.</string>
 </resources>
