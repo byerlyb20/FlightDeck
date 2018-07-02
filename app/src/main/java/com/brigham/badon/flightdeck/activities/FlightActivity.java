@@ -13,7 +13,9 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.View;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 
 import com.badon.brigham.flightcore.FlightCoreService;
 import com.brigham.badon.flightdeck.R;
@@ -42,6 +44,30 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
     }
 
     @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.test:
+                initiateTest();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void initiateTest() {
+        Message msg = Message.obtain();
+        msg.what = FlightCoreService.EVENT_INITIATE_TEST;
+
+        // Send the message off to the service
+        try {
+            // TODO: What if mService is null?
+            mService.send(msg);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
     public void onStart() {
         super.onStart();
 
@@ -54,6 +80,13 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         super.onStop();
 
         unbindService(this);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.activity_flight, menu);
+        return true;
     }
 
     @Override

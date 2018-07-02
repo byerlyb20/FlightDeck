@@ -11,6 +11,7 @@
     <string name="drone_ip">Drone IP Address</string>
     <string name="drone_port">Drone Port</string>
     <string name="drone_connect">Connect</string>
+    <string name="drone_test">Run Test Sequence</string>
 
     <string name="error_other_dialog_title">Connection failed</string>
     <string name="error_other_dialog_msg">For some reason, FlightCore couldn\'t establish a socket.
