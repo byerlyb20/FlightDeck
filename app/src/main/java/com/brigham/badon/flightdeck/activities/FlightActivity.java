@@ -13,9 +13,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.InputDevice;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 
 import com.badon.brigham.flightcore.FlightCoreService;
 import com.brigham.badon.flightdeck.R;
@@ -87,6 +90,49 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.activity_flight, menu);
         return true;
+    }
+
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent ev) {
+        if (isValidController(ev.getSource()) && ev.getAction() == MotionEvent.ACTION_MOVE) {
+            float lift = ev.getAxisValue(MotionEvent.AXIS_Y);
+            float roll = ev.getAxisValue(MotionEvent.AXIS_RZ);
+            float pitch = ev.getAxisValue(MotionEvent.AXIS_Z);
+            float yaw = ev.getAxisValue(MotionEvent.AXIS_X);
+
+            Bundle payload = new Bundle();
+            payload.putFloat("lift", lift);
+            payload.putFloat("roll", roll);
+            payload.putFloat("pitch", pitch);
+            payload.putFloat("yaw", yaw);
+
+            Message msg = Message.obtain();
+            msg.what = FlightCoreService.EVENT_CONTROL;
+            msg.setData(payload);
+            try {
+                mService.send(msg);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        return false;
+    }
+
+    /**
+     * FlightDeck only supports controllers with analog control sticks, a d-pad, and ABXY buttons
+     * @return true if the input device is valid, false otherwise
+     */
+    private boolean isValidController(int sources) {
+        boolean gamepad = (sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
+        boolean joystick = (sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK;
+        boolean dpad = (sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
+        return gamepad && joystick && dpad;
     }
 
     @Override
