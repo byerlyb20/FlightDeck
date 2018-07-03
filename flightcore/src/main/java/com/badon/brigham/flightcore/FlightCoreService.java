@@ -23,8 +23,11 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NoRouteToHostException;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.util.Timer;
+import java.util.TimerTask;
 
-public class FlightCoreService extends Service {
+public class FlightCoreService extends Service implements Runnable {
 
     private static final String TAG = "FlightCoreService";
 
@@ -36,12 +39,24 @@ public class FlightCoreService extends Service {
     public static final int EVENT_INITIATE_TEST = 1;
     public static final int EVENT_CONNECTION_SUCCESS = 2;
     public static final int EVENT_CONNECTION_FAILURE = 3;
+    public static final int EVENT_CONNECTION_DISCONNECT = 4;
+    public static final int EVENT_INFORM_CONTROL_BEGIN = 5;
+    public static final int EVENT_INFORM_CONTROL_STOP = 6;
+    public static final int EVENT_CONTROL = 7;
 
     public static final int FAILURE_REASON_OTHER = 0;
     public static final int FAILURE_REASON_HOST_UNREACHABLE = 1;
 
+    private float mLift;
+    private float mRoll;
+    private float mPitch;
+    private float mYaw;
+
+    private ServiceHandler mServiceHandler;
     private Messenger mMessenger;
     private Messenger mClient;
+    private ReportTimer mReportTimer;
+    private Timer mTimer;
 
     private Socket mSocket;
 
@@ -115,6 +130,46 @@ public class FlightCoreService extends Service {
                     }
                     break;
                 }
+                case EVENT_INFORM_CONTROL_BEGIN: {
+                    mTimer.schedule(mReportTimer, 0, 100);
+                    break;
+                }
+                case EVENT_INFORM_CONTROL_STOP: {
+                    mTimer.cancel();
+                    break;
+                }
+                case EVENT_CONTROL: {
+                    mLift = bundle.getFloat("lift");
+                    mRoll = bundle.getFloat("roll");
+                    mPitch = bundle.getFloat("pitch");
+                    mYaw = bundle.getFloat("yaw");
+                    break;
+                }
+            }
+        }
+    }
+
+    private class ReportTimer extends TimerTask {
+
+        @Override
+        public void run() {
+            // Send the latest controller values, done 10 times a second
+            try {
+                OutputStream os = mSocket.getOutputStream();
+                byte eventKey = '0';
+                byte[] payload = {eventKey};
+                os.write(payload);
+
+                byte[] lift = ByteBuffer.allocate(4).putFloat(mLift).array();
+                os.write(lift);
+                byte[] roll = ByteBuffer.allocate(4).putFloat(mRoll).array();
+                os.write(roll);
+                byte[] pitch = ByteBuffer.allocate(4).putFloat(mPitch).array();
+                os.write(pitch);
+                byte[] yaw = ByteBuffer.allocate(4).putFloat(mYaw).array();
+                os.write(yaw);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }
@@ -136,8 +191,12 @@ public class FlightCoreService extends Service {
         thread.start();
 
         Looper mServiceLooper = thread.getLooper();
-        ServiceHandler mServiceHandler = new ServiceHandler(mServiceLooper);
+        mServiceHandler = new ServiceHandler(mServiceLooper);
+        mServiceHandler.post(this);
         mMessenger = new Messenger(mServiceHandler);
+
+        mReportTimer = new ReportTimer();
+        mTimer = new Timer();
     }
 
     @Override
@@ -148,6 +207,28 @@ public class FlightCoreService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return mMessenger.getBinder();
+    }
+
+    @Override
+    public void run() {
+        if (mSocket != null && mSocket.isClosed()) {
+            Message closeAlert = Message.obtain();
+            closeAlert.what = EVENT_CONNECTION_DISCONNECT;
+            try {
+                mClient.send(closeAlert);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        } else if (mSocket != null) {
+            // TODO: Implement drone to FlightCore communication
+            // (needs to be implemented in firmware as well)
+            /*try {
+                InputStream is = mSocket.getInputStream();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }*/
+        }
+        mServiceHandler.post(this);
     }
 
     private void createNotificationChannel() {
