@@ -131,7 +131,7 @@ public class FlightCoreService extends Service implements Runnable {
                     break;
                 }
                 case EVENT_INFORM_CONTROL_BEGIN: {
-                    mTimer.schedule(mReportTimer, 0, 100);
+                    mTimer.schedule(mReportTimer, 0, 20);
                     break;
                 }
                 case EVENT_INFORM_CONTROL_STOP: {
