@@ -23,11 +23,14 @@ import android.view.MotionEvent;
 import com.badon.brigham.flightcore.FlightCoreService;
 import com.brigham.badon.flightdeck.R;
 
+import java.util.ArrayList;
+
 public class FlightActivity extends AppCompatActivity implements ServiceConnection {
 
     private static final String TAG = "FlightActivity";
 
     private Messenger mService;
+    private boolean mControlBegun = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,6 +89,20 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+
+        setControlState(true);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+
+        setControlState(false);
+    }
+
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.activity_flight, menu);
@@ -94,10 +111,17 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent ev) {
-        if (isValidController(ev.getSource()) && ev.getAction() == MotionEvent.ACTION_MOVE) {
-            float lift = ev.getAxisValue(MotionEvent.AXIS_Y);
-            float roll = ev.getAxisValue(MotionEvent.AXIS_RZ);
-            float pitch = ev.getAxisValue(MotionEvent.AXIS_Z);
+        if (mService == null) {
+            return false;
+        }
+
+        InputDevice device = ev.getDevice();
+
+        if (isValidController(device.getSources()) && ev.getAction() ==
+                MotionEvent.ACTION_MOVE) {
+            float lift = -ev.getAxisValue(MotionEvent.AXIS_Y);
+            float roll = ev.getAxisValue(MotionEvent.AXIS_RX);
+            float pitch = -ev.getAxisValue(MotionEvent.AXIS_RY);
             float yaw = ev.getAxisValue(MotionEvent.AXIS_X);
 
             Bundle payload = new Bundle();
@@ -132,7 +156,7 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         boolean gamepad = (sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
         boolean joystick = (sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK;
         boolean dpad = (sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
-        return gamepad && joystick && dpad;
+        return joystick;
     }
 
     @Override
@@ -150,11 +174,28 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         } catch (RemoteException e) {
             e.printStackTrace();
         }
+
+        setControlState(true);
     }
 
     @Override
     public void onServiceDisconnected(ComponentName name) {
         Log.v(TAG, "Service disconnected");
+    }
+
+    private void setControlState(boolean state) {
+        if (mControlBegun == state || mService == null) {
+            return;
+        }
+        Message beginControl = Message.obtain();
+        beginControl.what = (state ? FlightCoreService.EVENT_INFORM_CONTROL_BEGIN :
+                FlightCoreService.EVENT_INFORM_CONTROL_STOP);
+        try {
+            mService.send(beginControl);
+            mControlBegun = state;
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
     }
 
     private class ClientHandler extends Handler {
