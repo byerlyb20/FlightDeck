@@ -20,8 +20,7 @@
         </activity>
         <activity
             android:name=".activities.FlightActivity"
-            android:label="@string/activity_flight"
-            android:screenOrientation="landscape" />
+            android:label="@string/activity_flight" />
         <activity android:name=".activities.SelectDroneActivity"></activity>
     </application>
 
