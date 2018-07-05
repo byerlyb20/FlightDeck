@@ -163,7 +163,39 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
     }
 
     @Override
-    public boolean dispatchKeyEvent(KeyEvent event) {
+    public boolean dispatchKeyEvent(KeyEvent ev) {
+        if (mService == null) {
+            return false;
+        }
+
+        InputDevice device = ev.getDevice();
+
+        if (isValidController(device.getSources()) && ev.getAction() == KeyEvent.ACTION_DOWN) {
+            if (ev.getRepeatCount() == 0) {
+                switch (ev.getKeyCode()) {
+                    case KeyEvent.KEYCODE_BUTTON_A: {
+                        // Begin takeoff
+                        Log.v(TAG, "Begin takeoff");
+
+                        Message takeoff = Message.obtain();
+                        takeoff.what = FlightCoreService.EVENT_TAKEOFF;
+
+                        try {
+                            mService.send(takeoff);
+                        } catch (RemoteException e) {
+                            e.printStackTrace();
+                        }
+                        break;
+                    }
+                    case KeyEvent.KEYCODE_BUTTON_B: {
+                        // Bring motors back to idle speed
+                        Log.v(TAG, "Idle return");
+                        break;
+                    }
+                }
+                return true;
+            }
+        }
         return false;
     }
 
@@ -203,7 +235,7 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
     }
 
     private void setControlState(boolean state) {
-        if (mControlBegun == state || mService == null) {
+        /*if (mControlBegun == state || mService == null) {
             return;
         }
         Message beginControl = Message.obtain();
@@ -214,7 +246,7 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
             mControlBegun = state;
         } catch (RemoteException e) {
             e.printStackTrace();
-        }
+        }*/
     }
 
     private class ClientHandler extends Handler {

@@ -39,10 +39,10 @@ public class FlightCoreService extends Service implements Runnable {
     // Incoming Events
     public static final int EVENT_ESTABLISH_CONNECTION = 0;
     public static final int EVENT_INITIATE_TEST = 1;
-    public static final int EVENT_INFORM_CONTROL_BEGIN = 2;
-    public static final int EVENT_INFORM_CONTROL_STOP = 3;
-    public static final int EVENT_CONTROL = 4;
-    public static final int EVENT_REQUEST_DISCONNECT = 5;
+    public static final int EVENT_CONTROL = 2;
+    public static final int EVENT_REQUEST_DISCONNECT = 3;
+    public static final int EVENT_TAKEOFF = 4;
+    public static final int EVENT_IDLE_RETURN = 5;
 
     // Outgoing Events
     public static final int EVENT_CONNECTION_SUCCESS = 0;
@@ -116,14 +116,6 @@ public class FlightCoreService extends Service implements Runnable {
                     }
                     break;
                 }
-                case EVENT_INFORM_CONTROL_BEGIN: {
-                    mTimer.schedule(mReportTimer, 0, 20);
-                    break;
-                }
-                case EVENT_INFORM_CONTROL_STOP: {
-                    mTimer.cancel();
-                    break;
-                }
                 case EVENT_CONTROL: {
                     mLift = bundle.getFloat("lift");
                     mRoll = bundle.getFloat("roll");
@@ -133,6 +125,30 @@ public class FlightCoreService extends Service implements Runnable {
                 }
                 case EVENT_REQUEST_DISCONNECT: {
                     disconnect();
+                    break;
+                }
+                case EVENT_TAKEOFF: {
+                    mTimer.schedule(mReportTimer, 0, 20);
+                    try {
+                        OutputStream os = mSocket.getOutputStream();
+                        byte eventKey = '2';
+                        byte[] payload = {eventKey};
+                        os.write(payload);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                }
+                case EVENT_IDLE_RETURN: {
+                    mTimer.cancel();
+                    try {
+                        OutputStream os = mSocket.getOutputStream();
+                        byte eventKey = '3';
+                        byte[] payload = {eventKey};
+                        os.write(payload);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                     break;
                 }
             }
