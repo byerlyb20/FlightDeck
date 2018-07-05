@@ -197,7 +197,7 @@ public class FlightCoreService extends Service implements Runnable {
         @Override
         public void run() {
             // Send the latest controller values, done 10 times a second
-            if (mSocket != null && !mSocket.isClosed()) {
+            if (mSocket != null) {
                 try {
                     OutputStream os = mSocket.getOutputStream();
                     byte eventKey = '0';
@@ -256,15 +256,7 @@ public class FlightCoreService extends Service implements Runnable {
 
     @Override
     public void run() {
-        if (mSocket != null && mSocket.isClosed()) {
-            Message closeAlert = Message.obtain();
-            closeAlert.what = EVENT_CONNECTION_DISCONNECT;
-            try {
-                mClient.send(closeAlert);
-            } catch (RemoteException e) {
-                e.printStackTrace();
-            }
-        } else if (mSocket != null) {
+        if (mSocket != null) {
             // TODO: Implement drone to FlightCore communication
             // (needs to be implemented in firmware as well)
             /*try {
