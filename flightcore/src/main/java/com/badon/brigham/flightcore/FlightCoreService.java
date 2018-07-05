@@ -23,6 +23,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NoRouteToHostException;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -35,14 +36,18 @@ public class FlightCoreService extends Service implements Runnable {
 
     private static final String NOTIFICATION_CHANNEL_ID = "FLIGHTCORE_SERVICE";
 
+    // Incoming Events
     public static final int EVENT_ESTABLISH_CONNECTION = 0;
     public static final int EVENT_INITIATE_TEST = 1;
-    public static final int EVENT_CONNECTION_SUCCESS = 2;
-    public static final int EVENT_CONNECTION_FAILURE = 3;
-    public static final int EVENT_CONNECTION_DISCONNECT = 4;
-    public static final int EVENT_INFORM_CONTROL_BEGIN = 5;
-    public static final int EVENT_INFORM_CONTROL_STOP = 6;
-    public static final int EVENT_CONTROL = 7;
+    public static final int EVENT_INFORM_CONTROL_BEGIN = 2;
+    public static final int EVENT_INFORM_CONTROL_STOP = 3;
+    public static final int EVENT_CONTROL = 4;
+    public static final int EVENT_REQUEST_DISCONNECT = 5;
+
+    // Outgoing Events
+    public static final int EVENT_CONNECTION_SUCCESS = 0;
+    public static final int EVENT_CONNECTION_FAILURE = 1;
+    public static final int EVENT_CONNECTION_DISCONNECT = 2;
 
     public static final int FAILURE_REASON_OTHER = 0;
     public static final int FAILURE_REASON_HOST_UNREACHABLE = 1;
@@ -80,41 +85,22 @@ public class FlightCoreService extends Service implements Runnable {
             Bundle bundle = msg.getData();
             switch (msg.what) {
                 case EVENT_ESTABLISH_CONNECTION: {
-                    if (mSocket == null || !mSocket.isConnected()) {
+                    try {
+                        String ipAddr = bundle.getString("ipAddr");
+                        InetAddress addr = InetAddress.getByName(ipAddr);
+                        int port = bundle.getInt("port");
+
+                        establishConnection(addr, port);
+                    } catch (UnknownHostException e) {
+                        e.printStackTrace();
+
+                        Message reply = Message.obtain();
+                        reply.what = EVENT_CONNECTION_FAILURE;
+
                         try {
-                            String ipAddr = bundle.getString("ipAddr");
-                            InetAddress addr = InetAddress.getByName(ipAddr);
-                            int port = bundle.getInt("port");
-
-                            mSocket = new Socket();
-                            InetSocketAddress target = new InetSocketAddress(addr, port);
-                            mSocket.connect(target);
-
-                            try {
-                                Log.v(TAG, "Socket Connection Success");
-                                Message reply = Message.obtain();
-                                reply.what = EVENT_CONNECTION_SUCCESS;
-                                mClient.send(reply);
-                            } catch (RemoteException e) {
-                                e.printStackTrace();
-                            }
-                        } catch (IOException e) {
-                            e.printStackTrace();
-
-                            try {
-                                Message reply = Message.obtain();
-                                reply.what = EVENT_CONNECTION_FAILURE;
-
-                                Bundle details = new Bundle();
-                                if (e instanceof NoRouteToHostException) {
-                                    details.putInt("reason", FAILURE_REASON_HOST_UNREACHABLE);
-                                }
-                                reply.setData(details);
-
-                                mClient.send(reply);
-                            } catch (RemoteException f) {
-                                f.printStackTrace();
-                            }
+                            mClient.send(reply);
+                        } catch (RemoteException f) {
+                            f.printStackTrace();
                         }
                     }
                     break;
@@ -145,8 +131,65 @@ public class FlightCoreService extends Service implements Runnable {
                     mYaw = bundle.getFloat("yaw");
                     break;
                 }
+                case EVENT_REQUEST_DISCONNECT: {
+                    disconnect();
+                    break;
+                }
             }
         }
+    }
+
+    private void establishConnection(InetAddress addr, int port) {
+        if (mSocket == null || !mSocket.isConnected()) {
+            try {
+                mSocket = new Socket();
+                InetSocketAddress target = new InetSocketAddress(addr, port);
+                mSocket.connect(target);
+
+                try {
+                    Log.v(TAG, "Socket Connection Success");
+                    Message reply = Message.obtain();
+                    reply.what = EVENT_CONNECTION_SUCCESS;
+                    mClient.send(reply);
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+
+                try {
+                    Message reply = Message.obtain();
+                    reply.what = EVENT_CONNECTION_FAILURE;
+
+                    Bundle details = new Bundle();
+                    if (e instanceof NoRouteToHostException) {
+                        details.putInt("reason", FAILURE_REASON_HOST_UNREACHABLE);
+                    }
+                    reply.setData(details);
+
+                    mClient.send(reply);
+                } catch (RemoteException f) {
+                    f.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private void disconnect() {
+        // End socket communication
+        if (mSocket != null && !mSocket.isClosed()) {
+            try {
+                mSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // End regular intervals
+        mTimer.cancel();
+
+        // Stop service
+        stopSelf();
     }
 
     private class ReportTimer extends TimerTask {
@@ -154,22 +197,24 @@ public class FlightCoreService extends Service implements Runnable {
         @Override
         public void run() {
             // Send the latest controller values, done 10 times a second
-            try {
-                OutputStream os = mSocket.getOutputStream();
-                byte eventKey = '0';
-                byte[] payload = {eventKey};
-                os.write(payload);
+            if (mSocket != null && !mSocket.isClosed()) {
+                try {
+                    OutputStream os = mSocket.getOutputStream();
+                    byte eventKey = '0';
+                    byte[] payload = {eventKey};
+                    os.write(payload);
 
-                byte[] lift = ByteBuffer.allocate(4).putFloat(mLift).array();
-                os.write(lift);
-                byte[] roll = ByteBuffer.allocate(4).putFloat(mRoll).array();
-                os.write(roll);
-                byte[] pitch = ByteBuffer.allocate(4).putFloat(mPitch).array();
-                os.write(pitch);
-                byte[] yaw = ByteBuffer.allocate(4).putFloat(mYaw).array();
-                os.write(yaw);
-            } catch (IOException e) {
-                e.printStackTrace();
+                    byte[] lift = ByteBuffer.allocate(4).putFloat(mLift).array();
+                    os.write(lift);
+                    byte[] roll = ByteBuffer.allocate(4).putFloat(mRoll).array();
+                    os.write(roll);
+                    byte[] pitch = ByteBuffer.allocate(4).putFloat(mPitch).array();
+                    os.write(pitch);
+                    byte[] yaw = ByteBuffer.allocate(4).putFloat(mYaw).array();
+                    os.write(yaw);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }

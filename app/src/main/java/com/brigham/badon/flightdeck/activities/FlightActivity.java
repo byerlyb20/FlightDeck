@@ -55,6 +55,9 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
             case R.id.test:
                 initiateTest();
                 return true;
+            case R.id.disconnect:
+                disconnect();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -71,6 +74,22 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         } catch (RemoteException e) {
             e.printStackTrace();
         }
+    }
+
+    private void disconnect() {
+        Message msg = Message.obtain();
+        msg.what = FlightCoreService.EVENT_REQUEST_DISCONNECT;
+
+        // Send the message off to the service
+        try {
+            // TODO: What if mService is null?
+            mService.send(msg);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+
+        Intent intent = new Intent(this, MainActivity.class);
+        startActivity(intent);
     }
 
     @Override
