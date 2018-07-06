@@ -18,6 +18,7 @@ import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -25,6 +26,7 @@ import java.net.NoRouteToHostException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -42,12 +44,13 @@ public class FlightCoreService extends Service implements Runnable {
     public static final int EVENT_CONTROL = 2;
     public static final int EVENT_REQUEST_DISCONNECT = 3;
     public static final int EVENT_TAKEOFF = 4;
-    public static final int EVENT_IDLE_RETURN = 5;
+    public static final int EVENT_END_TAKEOFF = 5;
 
     // Outgoing Events
     public static final int EVENT_CONNECTION_SUCCESS = 0;
     public static final int EVENT_CONNECTION_FAILURE = 1;
     public static final int EVENT_CONNECTION_DISCONNECT = 2;
+    public static final int EVENT_TELEMETRY = 3;
 
     public static final int FAILURE_REASON_OTHER = 0;
     public static final int FAILURE_REASON_HOST_UNREACHABLE = 1;
@@ -128,7 +131,7 @@ public class FlightCoreService extends Service implements Runnable {
                     break;
                 }
                 case EVENT_TAKEOFF: {
-                    mTimer.schedule(mReportTimer, 0, 20);
+                    beginRegularDataOut();
                     try {
                         OutputStream os = mSocket.getOutputStream();
                         byte eventKey = '2';
@@ -139,11 +142,11 @@ public class FlightCoreService extends Service implements Runnable {
                     }
                     break;
                 }
-                case EVENT_IDLE_RETURN: {
-                    mTimer.cancel();
+                case EVENT_END_TAKEOFF: {
+                    stopRegularDataOut();
                     try {
                         OutputStream os = mSocket.getOutputStream();
-                        byte eventKey = '3';
+                        byte eventKey = '4';
                         byte[] payload = {eventKey};
                         os.write(payload);
                     } catch (IOException e) {
@@ -202,7 +205,7 @@ public class FlightCoreService extends Service implements Runnable {
         }
 
         // End regular intervals
-        mTimer.cancel();
+        stopRegularDataOut();
 
         // Stop service
         stopSelf();
@@ -255,9 +258,6 @@ public class FlightCoreService extends Service implements Runnable {
         mServiceHandler = new ServiceHandler(mServiceLooper);
         mServiceHandler.post(this);
         mMessenger = new Messenger(mServiceHandler);
-
-        mReportTimer = new ReportTimer();
-        mTimer = new Timer();
     }
 
     @Override
@@ -273,15 +273,46 @@ public class FlightCoreService extends Service implements Runnable {
     @Override
     public void run() {
         if (mSocket != null) {
-            // TODO: Implement drone to FlightCore communication
-            // (needs to be implemented in firmware as well)
             /*try {
                 InputStream is = mSocket.getInputStream();
+                if (is.available() >= 4) {
+                    byte[] voltageRaw = new byte[4];
+                    is.read(voltageRaw);
+                    float voltage = ByteBuffer.wrap(voltageRaw).order(ByteOrder.LITTLE_ENDIAN)
+                            .getFloat();
+
+                    Message telemetry = Message.obtain();
+                    telemetry.what = EVENT_TELEMETRY;
+
+                    Bundle payload = new Bundle();
+                    payload.putFloat("voltage", voltage);
+
+                    telemetry.setData(payload);
+
+                    try {
+                        mClient.send(telemetry);
+                    } catch (RemoteException f) {
+                        f.printStackTrace();
+                    }
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }*/
         }
         mServiceHandler.post(this);
+    }
+
+    private void beginRegularDataOut() {
+        if (mTimer != null) {
+            mTimer.cancel();
+        }
+        mReportTimer = new ReportTimer();
+        mTimer = new Timer();
+        mTimer.schedule(mReportTimer, 0, 20);
+    }
+
+    private void stopRegularDataOut() {
+        mTimer.cancel();
     }
 
     private void createNotificationChannel() {

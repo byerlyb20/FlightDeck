@@ -19,6 +19,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
+import android.widget.TextView;
 
 import com.badon.brigham.flightcore.FlightCoreService;
 import com.brigham.badon.flightdeck.R;
@@ -31,6 +32,8 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
 
     private Messenger mService;
     private boolean mControlBegun = false;
+
+    private TextView mVoltageMeter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,6 +50,8 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         } else {
             startService(intent);
         }
+
+        mVoltageMeter = findViewById(R.id.voltageMeter);
     }
 
     @Override
@@ -190,6 +195,15 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
                     case KeyEvent.KEYCODE_BUTTON_B: {
                         // Bring motors back to idle speed
                         Log.v(TAG, "Idle return");
+
+                        Message endTakeoff = Message.obtain();
+                        endTakeoff.what = FlightCoreService.EVENT_END_TAKEOFF;
+
+                        try {
+                            mService.send(endTakeoff);
+                        } catch (RemoteException e) {
+                            e.printStackTrace();
+                        }
                         break;
                     }
                 }
@@ -252,7 +266,14 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
     private class ClientHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
-
+            Bundle bundle = msg.getData();
+            switch (msg.what) {
+                case FlightCoreService.EVENT_TELEMETRY: {
+                    float voltage = Math.round(bundle.getFloat("voltage") * 100) / 100;
+                    mVoltageMeter.setText(voltage + "v");
+                    break;
+                }
+            }
         }
     }
 }
