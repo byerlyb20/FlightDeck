@@ -60,6 +60,8 @@ public class FlightCoreService extends Service implements Runnable {
     private float mPitch;
     private float mYaw;
 
+    private int mReportThreadAction = ReportTimer.ACTION_DO_NOTHING;
+
     private ServiceHandler mServiceHandler;
     private Messenger mMessenger;
     private Messenger mClient;
@@ -131,27 +133,14 @@ public class FlightCoreService extends Service implements Runnable {
                     break;
                 }
                 case EVENT_TAKEOFF: {
-                    beginRegularDataOut();
-                    try {
-                        OutputStream os = mSocket.getOutputStream();
-                        byte eventKey = '2';
-                        byte[] payload = {eventKey};
-                        os.write(payload);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    // Signal to the reporting thread to send a takeoff request on the next loop
+                    mReportThreadAction = ReportTimer.ACTION_BEGIN_TAKEOFF;
                     break;
                 }
                 case EVENT_END_TAKEOFF: {
-                    stopRegularDataOut();
-                    try {
-                        OutputStream os = mSocket.getOutputStream();
-                        byte eventKey = '4';
-                        byte[] payload = {eventKey};
-                        os.write(payload);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    // Signal to the reporting thread to send a takeoff-arrest request on the next
+                    // loop
+                    mReportThreadAction = ReportTimer.ACTION_END_TAKEOFF;
                     break;
                 }
             }
@@ -165,8 +154,11 @@ public class FlightCoreService extends Service implements Runnable {
                 InetSocketAddress target = new InetSocketAddress(addr, port);
                 mSocket.connect(target);
 
+                Log.v(TAG, "Socket Connection Success");
+
+                beginRegularDataOut();
+
                 try {
-                    Log.v(TAG, "Socket Connection Success");
                     Message reply = Message.obtain();
                     reply.what = EVENT_CONNECTION_SUCCESS;
                     mClient.send(reply);
@@ -195,6 +187,9 @@ public class FlightCoreService extends Service implements Runnable {
     }
 
     private void disconnect() {
+        // End regular intervals
+        stopRegularDataOut();
+
         // End socket communication
         if (mSocket != null && !mSocket.isClosed()) {
             try {
@@ -204,35 +199,71 @@ public class FlightCoreService extends Service implements Runnable {
             }
         }
 
-        // End regular intervals
-        stopRegularDataOut();
-
         // Stop service
         stopSelf();
     }
 
     private class ReportTimer extends TimerTask {
 
+        public static final int ACTION_DO_NOTHING = 0;
+        public static final int ACTION_BEGIN_TAKEOFF = 1;
+        public static final int ACTION_CONTROLLER_REPORT = 2;
+        public static final int ACTION_END_TAKEOFF = 3;
+
         @Override
         public void run() {
             // Send the latest controller values, done 10 times a second
-            if (mSocket != null) {
-                try {
-                    OutputStream os = mSocket.getOutputStream();
-                    byte eventKey = '0';
-                    byte[] payload = {eventKey};
-                    os.write(payload);
+            switch (mReportThreadAction) {
+                case ACTION_BEGIN_TAKEOFF: {
+                    try {
+                        OutputStream os = mSocket.getOutputStream();
+                        byte eventKey = '2';
+                        byte[] payload = {eventKey};
+                        os.write(payload);
 
-                    byte[] lift = ByteBuffer.allocate(4).putFloat(mLift).array();
-                    os.write(lift);
-                    byte[] roll = ByteBuffer.allocate(4).putFloat(mRoll).array();
-                    os.write(roll);
-                    byte[] pitch = ByteBuffer.allocate(4).putFloat(mPitch).array();
-                    os.write(pitch);
-                    byte[] yaw = ByteBuffer.allocate(4).putFloat(mYaw).array();
-                    os.write(yaw);
-                } catch (IOException e) {
-                    e.printStackTrace();
+                        // Now that we have requested a takeoff, we periodically send controller
+                        // values
+                        mReportThreadAction = ACTION_CONTROLLER_REPORT;
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                }
+                case ACTION_CONTROLLER_REPORT: {
+                    try {
+                        OutputStream os = mSocket.getOutputStream();
+                        byte eventKey = '0';
+                        byte[] payload = {eventKey};
+                        os.write(payload);
+
+                        byte[] lift = ByteBuffer.allocate(4).putFloat(mLift).array();
+                        os.write(lift);
+                        byte[] roll = ByteBuffer.allocate(4).putFloat(mRoll).array();
+                        os.write(roll);
+                        byte[] pitch = ByteBuffer.allocate(4).putFloat(mPitch).array();
+                        os.write(pitch);
+                        byte[] yaw = ByteBuffer.allocate(4).putFloat(mYaw).array();
+                        os.write(yaw);
+                        Log.v(TAG, "Lift: " + mLift);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                }
+                case ACTION_END_TAKEOFF: {
+                    try {
+                        OutputStream os = mSocket.getOutputStream();
+                        byte eventKey = '4';
+                        byte[] payload = {eventKey};
+                        os.write(payload);
+
+                        // Now that we have requested a takeoff-arrest, we stop sending controller
+                        // values
+                        mReportThreadAction = ACTION_DO_NOTHING;
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    break;
                 }
             }
         }
@@ -308,7 +339,7 @@ public class FlightCoreService extends Service implements Runnable {
         }
         mReportTimer = new ReportTimer();
         mTimer = new Timer();
-        mTimer.schedule(mReportTimer, 0, 20);
+        mTimer.schedule(mReportTimer, 0, 40);
     }
 
     private void stopRegularDataOut() {
