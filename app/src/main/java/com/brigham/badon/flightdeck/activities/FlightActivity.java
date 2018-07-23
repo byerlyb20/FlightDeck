@@ -31,9 +31,10 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
     private static final String TAG = "FlightActivity";
 
     private Messenger mService;
-    private boolean mControlBegun = false;
 
     private TextView mVoltageMeter;
+    private TextView mSSMeter;
+    private TextView mLiftStickMeter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +53,8 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         }
 
         mVoltageMeter = findViewById(R.id.voltageMeter);
+        mSSMeter = findViewById(R.id.ssMeter);
+        mLiftStickMeter = findViewById(R.id.liftStickMeter);
     }
 
     @Override
@@ -162,6 +165,9 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
             } catch (RemoteException e) {
                 e.printStackTrace();
             }
+
+            lift = Math.round(lift * 100.0f) / 100.0f;
+            mLiftStickMeter.setText("LS: " + lift);
             return true;
         }
         return false;
@@ -269,8 +275,9 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
             Bundle bundle = msg.getData();
             switch (msg.what) {
                 case FlightCoreService.EVENT_TELEMETRY: {
-                    float voltage = Math.round(bundle.getFloat("voltage") * 100) / 100;
+                    float voltage = Math.round(bundle.getFloat("voltage") * 100.0f) / 100.0f;
                     mVoltageMeter.setText(voltage + "v");
+                    mSSMeter.setText("SS: " + bundle.getInt("signalStrength"));
                     break;
                 }
             }

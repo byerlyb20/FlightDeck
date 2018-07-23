@@ -27,10 +27,13 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class FlightCoreService extends Service implements Runnable {
+public class FlightCoreService extends Service {
 
     private static final String TAG = "FlightCoreService";
 
@@ -60,12 +63,11 @@ public class FlightCoreService extends Service implements Runnable {
     private float mPitch;
     private float mYaw;
 
+    private boolean mTurnEven = false;
     private int mReportThreadAction = ReportTimer.ACTION_DO_NOTHING;
 
-    private ServiceHandler mServiceHandler;
     private Messenger mMessenger;
     private Messenger mClient;
-    private ReportTimer mReportTimer;
     private Timer mTimer;
 
     private Socket mSocket;
@@ -190,6 +192,8 @@ public class FlightCoreService extends Service implements Runnable {
         // End regular intervals
         stopRegularDataOut();
 
+        // Stop checking for telemetry
+
         // End socket communication
         if (mSocket != null && !mSocket.isClosed()) {
             try {
@@ -212,60 +216,97 @@ public class FlightCoreService extends Service implements Runnable {
 
         @Override
         public void run() {
-            // Send the latest controller values, done 10 times a second
-            switch (mReportThreadAction) {
-                case ACTION_BEGIN_TAKEOFF: {
-                    try {
-                        OutputStream os = mSocket.getOutputStream();
-                        byte eventKey = '2';
-                        byte[] payload = {eventKey};
-                        os.write(payload);
+            sendDataOut();
+            checkTelemetry();
+        }
+    }
 
-                        // Now that we have requested a takeoff, we periodically send controller
-                        // values
-                        mReportThreadAction = ACTION_CONTROLLER_REPORT;
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    break;
+    private void sendDataOut() {
+        switch (mReportThreadAction) {
+            case ReportTimer.ACTION_BEGIN_TAKEOFF: {
+                try {
+                    OutputStream os = mSocket.getOutputStream();
+                    byte eventKey = '2';
+                    byte[] payload = {eventKey};
+                    os.write(payload);
+
+                    // Now that we have requested a takeoff, we periodically send controller
+                    // values
+                    mReportThreadAction = ReportTimer.ACTION_CONTROLLER_REPORT;
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-                case ACTION_CONTROLLER_REPORT: {
-                    try {
-                        OutputStream os = mSocket.getOutputStream();
-                        byte eventKey = '0';
-                        byte[] payload = {eventKey};
-                        os.write(payload);
+                break;
+            }
+            case ReportTimer.ACTION_CONTROLLER_REPORT: {
+                try {
+                    ByteBuffer buffer = ByteBuffer.allocate(17);
 
-                        byte[] lift = ByteBuffer.allocate(4).putFloat(mLift).array();
-                        os.write(lift);
-                        byte[] roll = ByteBuffer.allocate(4).putFloat(mRoll).array();
-                        os.write(roll);
-                        byte[] pitch = ByteBuffer.allocate(4).putFloat(mPitch).array();
-                        os.write(pitch);
-                        byte[] yaw = ByteBuffer.allocate(4).putFloat(mYaw).array();
-                        os.write(yaw);
-                        Log.v(TAG, "Lift: " + mLift);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    break;
+                    OutputStream os = mSocket.getOutputStream();
+                    byte eventKey = '0';
+                    buffer.put(eventKey);
+
+                    buffer.putFloat(mLift);
+                    buffer.putFloat(mRoll);
+                    buffer.putFloat(mPitch);
+                    buffer.putFloat(mYaw);
+
+                    os.write(buffer.array());
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-                case ACTION_END_TAKEOFF: {
-                    try {
-                        OutputStream os = mSocket.getOutputStream();
-                        byte eventKey = '4';
-                        byte[] payload = {eventKey};
-                        os.write(payload);
+                break;
+            }
+            case ReportTimer.ACTION_END_TAKEOFF: {
+                try {
+                    OutputStream os = mSocket.getOutputStream();
+                    byte eventKey = '4';
+                    byte[] payload = {eventKey};
+                    os.write(payload);
 
-                        // Now that we have requested a takeoff-arrest, we stop sending controller
-                        // values
-                        mReportThreadAction = ACTION_DO_NOTHING;
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    break;
+                    // Now that we have requested a takeoff-arrest, we stop sending controller
+                    // values
+                    mReportThreadAction = ReportTimer.ACTION_DO_NOTHING;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                break;
+            }
+        }
+    }
+
+    private void checkTelemetry() {
+        try {
+            InputStream is = mSocket.getInputStream();
+            Log.v(TAG, "Available: " + is.available());
+            while (is.available() >= 8) {
+                byte[] voltageRaw = new byte[4];
+                is.read(voltageRaw);
+                float voltage = ByteBuffer.wrap(voltageRaw).order(ByteOrder.LITTLE_ENDIAN)
+                        .getFloat();
+
+                byte[] ssRaw = new byte[4];
+                is.read(ssRaw);
+                int signalStrength = ByteBuffer.wrap(ssRaw).order(ByteOrder.LITTLE_ENDIAN)
+                        .getInt();
+
+                Message telemetry = Message.obtain();
+                telemetry.what = EVENT_TELEMETRY;
+
+                Bundle payload = new Bundle();
+                payload.putFloat("voltage", voltage);
+                payload.putInt("signalStrength", signalStrength);
+
+                telemetry.setData(payload);
+
+                try {
+                    mClient.send(telemetry);
+                } catch (RemoteException f) {
+                    f.printStackTrace();
                 }
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -285,10 +326,9 @@ public class FlightCoreService extends Service implements Runnable {
         HandlerThread thread = new HandlerThread("FlightCoreHandlerThread");
         thread.start();
 
-        Looper mServiceLooper = thread.getLooper();
-        mServiceHandler = new ServiceHandler(mServiceLooper);
-        mServiceHandler.post(this);
-        mMessenger = new Messenger(mServiceHandler);
+        Looper serviceLooper = thread.getLooper();
+        ServiceHandler serviceHandler = new ServiceHandler(serviceLooper);
+        mMessenger = new Messenger(serviceHandler);
     }
 
     @Override
@@ -301,43 +341,11 @@ public class FlightCoreService extends Service implements Runnable {
         return mMessenger.getBinder();
     }
 
-    @Override
-    public void run() {
-        if (mSocket != null) {
-            /*try {
-                InputStream is = mSocket.getInputStream();
-                if (is.available() >= 4) {
-                    byte[] voltageRaw = new byte[4];
-                    is.read(voltageRaw);
-                    float voltage = ByteBuffer.wrap(voltageRaw).order(ByteOrder.LITTLE_ENDIAN)
-                            .getFloat();
-
-                    Message telemetry = Message.obtain();
-                    telemetry.what = EVENT_TELEMETRY;
-
-                    Bundle payload = new Bundle();
-                    payload.putFloat("voltage", voltage);
-
-                    telemetry.setData(payload);
-
-                    try {
-                        mClient.send(telemetry);
-                    } catch (RemoteException f) {
-                        f.printStackTrace();
-                    }
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }*/
-        }
-        mServiceHandler.post(this);
-    }
-
     private void beginRegularDataOut() {
         if (mTimer != null) {
             mTimer.cancel();
         }
-        mReportTimer = new ReportTimer();
+        ReportTimer mReportTimer = new ReportTimer();
         mTimer = new Timer();
         mTimer.schedule(mReportTimer, 0, 40);
     }

@@ -10,4 +10,8 @@
     <style name="AppToolbar" parent="ThemeOverlay.AppCompat.Dark.ActionBar">
     </style>
 
+    <style name="DashboardText" parent="TextAppearance.AppCompat.Large">
+        <item name="android:textSize">100sp</item>
+    </style>
+
 </resources>
