@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="service_description">Manages and handles communication between the FlightDeck client and a supported drone.</string>
+    <string name="service_description">Manages and handles communication between the FlightDeck
+        client and a supported drone.</string>
 
     <string name="service_channel_name">FlightCore Service Running</string>
-    <string name="service_channel_description">Indicates that the FlightCore service is running in the background</string>
+    <string name="service_channel_description">Indicates that the FlightCore service is running in
+        the background</string>
 
     <string name="service_notification_title">FlightCore is running</string>
-    <string name="service_notification_description">FlightCore managing a connection with a drone</string>
+    <string name="service_notification_description">FlightCore is managing a connection with a
+        drone</string>
 </resources>
