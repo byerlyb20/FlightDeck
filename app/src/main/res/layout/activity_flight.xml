@@ -49,5 +49,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/ssMeter" />
 
+    <com.jjoe64.graphview.GraphView
+        android:id="@+id/voltageGraph"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/liftStickMeter" />
+
 
 </android.support.constraint.ConstraintLayout>

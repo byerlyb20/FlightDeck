@@ -23,6 +23,9 @@ import android.widget.TextView;
 
 import com.badon.brigham.flightcore.FlightCoreService;
 import com.brigham.badon.flightdeck.R;
+import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.LineGraphSeries;
 
 import java.util.ArrayList;
 
@@ -35,6 +38,10 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
     private TextView mVoltageMeter;
     private TextView mSSMeter;
     private TextView mLiftStickMeter;
+
+    private double mLastX = 0;
+    private GraphView mVoltageGraph;
+    private LineGraphSeries<DataPoint> mSeries;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,6 +62,10 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         mVoltageMeter = findViewById(R.id.voltageMeter);
         mSSMeter = findViewById(R.id.ssMeter);
         mLiftStickMeter = findViewById(R.id.liftStickMeter);
+
+        mVoltageGraph = findViewById(R.id.voltageGraph);
+        mSeries = new LineGraphSeries<>();
+        mVoltageGraph.addSeries(mSeries);
     }
 
     @Override
@@ -276,6 +287,10 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
             switch (msg.what) {
                 case FlightCoreService.EVENT_TELEMETRY: {
                     float voltage = Math.round(bundle.getFloat("voltage") * 100.0f) / 100.0f;
+
+                    mLastX++;
+                    mSeries.appendData(new DataPoint(mLastX, voltage), true, 80);
+
                     mVoltageMeter.setText(voltage + "v");
                     mSSMeter.setText("SS: " + bundle.getInt("signalStrength"));
                     break;
