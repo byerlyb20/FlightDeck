@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -15,15 +16,19 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 import android.support.v4.app.NotificationCompat;
+import android.text.format.Formatter;
 import android.util.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NoRouteToHostException;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -41,6 +46,8 @@ public class FlightCoreService extends Service {
 
     private static final String NOTIFICATION_CHANNEL_ID = "FLIGHTCORE_SERVICE";
 
+    private static final String DISCOVERY_ADDRESS = "224.16.16.16";
+
     // Incoming Events
     public static final int EVENT_ESTABLISH_CONNECTION = 0;
     public static final int EVENT_INITIATE_TEST = 1;
@@ -48,12 +55,15 @@ public class FlightCoreService extends Service {
     public static final int EVENT_REQUEST_DISCONNECT = 3;
     public static final int EVENT_TAKEOFF = 4;
     public static final int EVENT_END_TAKEOFF = 5;
+    public static final int EVENT_BEGIN_DISCOVERY = 6;
+    public static final int EVENT_END_DISCOVERY = 7;
 
     // Outgoing Events
     public static final int EVENT_CONNECTION_SUCCESS = 0;
     public static final int EVENT_CONNECTION_FAILURE = 1;
     public static final int EVENT_CONNECTION_DISCONNECT = 2;
     public static final int EVENT_TELEMETRY = 3;
+    public static final int EVENT_RECONNAISSANCE = 4;
 
     public static final int FAILURE_REASON_OTHER = 0;
     public static final int FAILURE_REASON_HOST_UNREACHABLE = 1;
@@ -71,6 +81,39 @@ public class FlightCoreService extends Service {
     private Timer mTimer;
 
     private Socket mSocket;
+    private DatagramSocket mDiscoverySocket;
+
+    private Thread mDiscoveryThread;
+
+    private class DiscoveryRunnable implements Runnable {
+        @Override
+        public void run() {
+            while (!Thread.interrupted()) {
+                try {
+                    byte[] buffer = new byte[4];
+                    DatagramPacket in = new DatagramPacket(buffer, 4);
+                    mDiscoverySocket.receive(in);
+
+                    InetAddress remoteDrone = InetAddress.getByAddress(buffer);
+
+                    Bundle bundle = new Bundle();
+                    bundle.putSerializable("remoteAddr", remoteDrone);
+
+                    Message notify = Message.obtain();
+                    notify.what = EVENT_CONNECTION_FAILURE;
+                    notify.setData(bundle);
+
+                    try {
+                        mClient.send(notify);
+                    } catch (RemoteException f) {
+                        f.printStackTrace();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 
     public FlightCoreService() {
     }
@@ -143,6 +186,37 @@ public class FlightCoreService extends Service {
                     // Signal to the reporting thread to send a takeoff-arrest request on the next
                     // loop
                     mReportThreadAction = ReportTimer.ACTION_END_TAKEOFF;
+                    break;
+                }
+                case EVENT_BEGIN_DISCOVERY: {
+                    try {
+                        if (mDiscoverySocket == null) {
+                            mDiscoverySocket = new DatagramSocket(8081);
+                            mDiscoverySocket.setSoTimeout(100);
+                        }
+
+                        mDiscoveryThread = new Thread(new DiscoveryRunnable());
+                        mDiscoveryThread.start();
+
+                        WifiManager wm = (WifiManager) getApplicationContext()
+                                .getSystemService(WIFI_SERVICE);
+                        int ipAddr = wm.getConnectionInfo().getIpAddress();
+
+                        InetAddress discoveryAddr = InetAddress.getByName(DISCOVERY_ADDRESS);
+                        byte[] buffer = ByteBuffer.allocate(4).putInt(ipAddr).array();
+                        DatagramPacket broadcast = new DatagramPacket(buffer, 0, 4,
+                                discoveryAddr, 8081);
+
+                        mDiscoverySocket.send(broadcast);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                }
+                case EVENT_END_DISCOVERY: {
+                    if (mDiscoveryThread != null) {
+                        mDiscoveryThread.interrupt();
+                    }
                     break;
                 }
             }

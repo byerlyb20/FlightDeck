@@ -3,6 +3,7 @@
     <string name="activity_flight">Flight Panel</string>
 
     <string name="ok">OK</string>
+    <string name="nn">Not Now</string>
 
     <string name="msg_greet">There\'s not a lot here yet, but we\'re working on it.</string>
 
@@ -21,4 +22,8 @@
     <string name="error_host_unreachable_dialog_msg">FlightCore couldn\'t reach a device with the
         connection details specified. The network could be blocking inter-device communication, or
         the IP Address and/or port could be wrong.</string>
+
+    <string name="remember_drone_dialog_title">Remember this Drone?</string>
+    <string name="remember_drone_dialog_msg">Add a quick, familiar name for this drone and we\'ll
+        remember it's connection settings for next time.</string>
 </resources>
