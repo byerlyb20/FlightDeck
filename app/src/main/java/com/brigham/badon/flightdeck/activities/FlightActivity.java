@@ -24,6 +24,7 @@ import android.widget.TextView;
 import com.badon.brigham.flightcore.FlightCoreService;
 import com.brigham.badon.flightdeck.R;
 import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.GridLabelRenderer;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 
@@ -40,8 +41,12 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
     private TextView mLiftStickMeter;
 
     private double mLastX = 0;
+    private static final double MAX_Y = 12.8;
+    private static final double MIN_Y = 11.0;
+    private static final double MAX_X = 80.0;
+    private static final double MIN_X = 0.0;
     private GraphView mVoltageGraph;
-    private LineGraphSeries<DataPoint> mSeries;
+    private LineGraphSeries mSeries;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,6 +71,15 @@ public class FlightActivity extends AppCompatActivity implements ServiceConnecti
         mVoltageGraph = findViewById(R.id.voltageGraph);
         mSeries = new LineGraphSeries<>();
         mVoltageGraph.addSeries(mSeries);
+
+        mVoltageGraph.getViewport().setYAxisBoundsManual(true);
+        mVoltageGraph.getViewport().setMaxY(MAX_Y);
+        mVoltageGraph.getViewport().setMinY(MIN_Y);
+        mVoltageGraph.getViewport().setXAxisBoundsManual(true);
+        mVoltageGraph.getViewport().setMaxX(MAX_X);
+        mVoltageGraph.getViewport().setMinX(MIN_X);
+        mVoltageGraph.getGridLabelRenderer().setHorizontalLabelsVisible(false);
+        mVoltageGraph.getGridLabelRenderer().setGridStyle(GridLabelRenderer.GridStyle.HORIZONTAL);
     }
 
     @Override

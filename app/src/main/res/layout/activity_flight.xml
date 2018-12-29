@@ -19,15 +19,22 @@
             android:background="@drawable/gradient_selector" />
     </android.support.design.widget.AppBarLayout>
 
+    <com.jjoe64.graphview.GraphView
+        android:id="@+id/voltageGraph"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/appBarLayout" />
+
     <TextView
         android:id="@+id/voltageMeter"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
-        android:textAppearance="@style/DashboardText"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/appBarLayout" />
+        android:textAppearance="@style/DashboardTextMini"
+        app:layout_constraintEnd_toEndOf="@+id/voltageGraph"
+        app:layout_constraintBottom_toBottomOf="@+id/voltageGraph" />
 
     <TextView
         android:id="@+id/ssMeter"
@@ -37,7 +44,7 @@
         android:layout_marginTop="16dp"
         android:textAppearance="@style/DashboardText"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/voltageMeter" />
+        app:layout_constraintTop_toBottomOf="@+id/voltageGraph" />
 
     <TextView
         android:id="@+id/liftStickMeter"
@@ -48,13 +55,6 @@
         android:textAppearance="@style/DashboardText"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/ssMeter" />
-
-    <com.jjoe64.graphview.GraphView
-        android:id="@+id/voltageGraph"
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/liftStickMeter" />
 
 
 </android.support.constraint.ConstraintLayout>
