@@ -18,18 +18,15 @@ import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NoRouteToHostException;
-import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -63,14 +60,15 @@ public class FlightCoreService extends Service {
     private float mPitch;
     private float mYaw;
 
-    private boolean mTurnEven = false;
     private int mReportThreadAction = ReportTimer.ACTION_DO_NOTHING;
 
     private Messenger mMessenger;
     private Messenger mClient;
-    private Timer mTimer;
+    private Timer mReportTimer;
+    private Timer mTelemetryTimer;
 
-    private Socket mSocket;
+    private DatagramSocket mSocket;
+    private DatagramPacket mPacketIn = new DatagramPacket(new byte[8], 8);
 
     public FlightCoreService() {
     }
@@ -114,10 +112,10 @@ public class FlightCoreService extends Service {
                 }
                 case EVENT_INITIATE_TEST: {
                     try {
-                        OutputStream os = mSocket.getOutputStream();
                         byte eventKey = '1';
                         byte[] payload = {eventKey};
-                        os.write(payload);
+                        DatagramPacket packet = new DatagramPacket(payload, payload.length);
+                        mSocket.send(packet);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -152,13 +150,11 @@ public class FlightCoreService extends Service {
     private void establishConnection(InetAddress addr, int port) {
         if (mSocket == null || !mSocket.isConnected()) {
             try {
-                mSocket = new Socket();
                 InetSocketAddress target = new InetSocketAddress(addr, port);
-                mSocket.connect(target);
-
-                Log.v(TAG, "Socket Connection Success");
+                mSocket = new DatagramSocket(target);
 
                 beginRegularDataOut();
+                beginTelemetryChecks();
 
                 try {
                     Message reply = Message.obtain();
@@ -193,15 +189,10 @@ public class FlightCoreService extends Service {
         stopRegularDataOut();
 
         // Stop checking for telemetry
+        stopTelemetryChecks();
 
         // End socket communication
-        if (mSocket != null && !mSocket.isClosed()) {
-            try {
-                mSocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        mSocket.close();
 
         // Stop service
         stopSelf();
@@ -217,6 +208,13 @@ public class FlightCoreService extends Service {
         @Override
         public void run() {
             sendDataOut();
+        }
+    }
+
+    private class TelemetryTimer extends TimerTask {
+
+        @Override
+        public void run() {
             checkTelemetry();
         }
     }
@@ -225,10 +223,10 @@ public class FlightCoreService extends Service {
         switch (mReportThreadAction) {
             case ReportTimer.ACTION_BEGIN_TAKEOFF: {
                 try {
-                    OutputStream os = mSocket.getOutputStream();
                     byte eventKey = '2';
                     byte[] payload = {eventKey};
-                    os.write(payload);
+                    DatagramPacket packet = new DatagramPacket(payload, payload.length);
+                    mSocket.send(packet);
 
                     // Now that we have requested a takeoff, we periodically send controller
                     // values
@@ -242,7 +240,6 @@ public class FlightCoreService extends Service {
                 try {
                     ByteBuffer buffer = ByteBuffer.allocate(17);
 
-                    OutputStream os = mSocket.getOutputStream();
                     byte eventKey = '0';
                     buffer.put(eventKey);
 
@@ -251,7 +248,9 @@ public class FlightCoreService extends Service {
                     buffer.putFloat(mPitch);
                     buffer.putFloat(mYaw);
 
-                    os.write(buffer.array());
+                    byte[] payload = buffer.array();
+                    DatagramPacket packet = new DatagramPacket(payload, payload.length);
+                    mSocket.send(packet);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -259,10 +258,10 @@ public class FlightCoreService extends Service {
             }
             case ReportTimer.ACTION_END_TAKEOFF: {
                 try {
-                    OutputStream os = mSocket.getOutputStream();
                     byte eventKey = '4';
                     byte[] payload = {eventKey};
-                    os.write(payload);
+                    DatagramPacket packet = new DatagramPacket(payload, payload.length);
+                    mSocket.send(packet);
 
                     // Now that we have requested a takeoff-arrest, we stop sending controller
                     // values
@@ -277,33 +276,30 @@ public class FlightCoreService extends Service {
 
     private void checkTelemetry() {
         try {
-            InputStream is = mSocket.getInputStream();
-            Log.v(TAG, "Available: " + is.available());
-            while (is.available() >= 8) {
-                byte[] voltageRaw = new byte[4];
-                is.read(voltageRaw);
-                float voltage = ByteBuffer.wrap(voltageRaw).order(ByteOrder.LITTLE_ENDIAN)
-                        .getFloat();
+            // Wait until we receive a packet (this call blocks)
+            mSocket.receive(mPacketIn);
 
-                byte[] ssRaw = new byte[4];
-                is.read(ssRaw);
-                int signalStrength = ByteBuffer.wrap(ssRaw).order(ByteOrder.LITTLE_ENDIAN)
-                        .getInt();
+            byte[] voltageRaw = Arrays.copyOfRange(mPacketIn.getData(), 0, 4);
+            float voltage = ByteBuffer.wrap(voltageRaw).order(ByteOrder.LITTLE_ENDIAN)
+                    .getFloat();
 
-                Message telemetry = Message.obtain();
-                telemetry.what = EVENT_TELEMETRY;
+            byte[] ssRaw = Arrays.copyOfRange(mPacketIn.getData(), 4, 8);
+            int signalStrength = ByteBuffer.wrap(ssRaw).order(ByteOrder.LITTLE_ENDIAN)
+                    .getInt();
 
-                Bundle payload = new Bundle();
-                payload.putFloat("voltage", voltage);
-                payload.putInt("signalStrength", signalStrength);
+            Message telemetry = Message.obtain();
+            telemetry.what = EVENT_TELEMETRY;
 
-                telemetry.setData(payload);
+            Bundle payload = new Bundle();
+            payload.putFloat("voltage", voltage);
+            payload.putInt("signalStrength", signalStrength);
 
-                try {
-                    mClient.send(telemetry);
-                } catch (RemoteException f) {
-                    f.printStackTrace();
-                }
+            telemetry.setData(payload);
+
+            try {
+                mClient.send(telemetry);
+            } catch (RemoteException f) {
+                f.printStackTrace();
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -342,16 +338,29 @@ public class FlightCoreService extends Service {
     }
 
     private void beginRegularDataOut() {
-        if (mTimer != null) {
-            mTimer.cancel();
+        if (mReportTimer != null) {
+            mReportTimer.cancel();
         }
-        ReportTimer mReportTimer = new ReportTimer();
-        mTimer = new Timer();
-        mTimer.schedule(mReportTimer, 0, 40);
+        ReportTimer reportTimer = new ReportTimer();
+        this.mReportTimer = new Timer();
+        this.mReportTimer.schedule(reportTimer, 0, 40);
+    }
+
+    private void beginTelemetryChecks() {
+        if (mTelemetryTimer != null) {
+            mTelemetryTimer.cancel();
+        }
+        ReportTimer telemetryTimer = new ReportTimer();
+        this.mTelemetryTimer = new Timer();
+        this.mTelemetryTimer.schedule(telemetryTimer, 0, 40);
     }
 
     private void stopRegularDataOut() {
-        mTimer.cancel();
+        mReportTimer.cancel();
+    }
+
+    private void stopTelemetryChecks() {
+        mTelemetryTimer.cancel();
     }
 
     private void createNotificationChannel() {
